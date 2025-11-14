@@ -1,21 +1,44 @@
-const express = require("express");
-const cors = require("cors");
-const dotenv = require("dotenv");
-const connectDB = require("./config/db");
-const loanRoutes = require("./routes/loanRoutes");
+require('dotenv').config({ path: './.env' });
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
+const connectDB = require('./config/db');
+const authRoutes = require('./routes/authRoutes');
+const loanRoutes = require('./routes/loanRoutes');
+const errorHandler = require('./middleware/errorHandler');
 
-dotenv.config();
-console.log("🟡 MONGO_URI from .env:", process.env.MONGO_URI);
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+const PORT = process.env.PORT || 5000;
 
+// connect DB
 connectDB();
 
-app.use("/api/loans", loanRoutes);
+// middlewares
+app.use(helmet());
+app.use(cors()); // adjust options later for production
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-app.get("/", (req, res) => res.send("Server running successfully..."));
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120 // limit per minute
+});
+app.use(limiter);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// routes
+app.use('/api/auth', authRoutes);
+app.use('/api/loans', loanRoutes);
+
+// health
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// error handler
+app.use(errorHandler);
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
