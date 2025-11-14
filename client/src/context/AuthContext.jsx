@@ -3,9 +3,9 @@ import { getUsersFromStorage } from "../services/localApi";
 
 /**
  * AuthContext provides:
- *  - user: null | {email, role, name}
+ *  - user: null | {email, role, name, phone, pan}
  *  - login(email,password) -> { success, message }
- *  - signup(name,email,password) -> { success, message }
+ *  - signup(name,email,password,phone,pan) -> { success, message }
  *  - logout()
  *
  * NOTE: admin credentials are hard-coded for demo:
@@ -13,7 +13,7 @@ import { getUsersFromStorage } from "../services/localApi";
  *  password: admin123
  */
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -42,7 +42,7 @@ export default function AuthProvider({ children }) {
     const users = getUsersFromStorage();
     const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
     if (found) {
-      const logged = { email: found.email, name: found.name, role: "user" };
+      const logged = { email: found.email, name: found.name, phone: found.phone, pan: found.pan, role: "user" };
       setUser(logged);
       persistUser(logged);
       return { success: true };
@@ -51,20 +51,20 @@ export default function AuthProvider({ children }) {
     return { success: false, message: "Invalid credentials" };
   };
 
-  const signup = (name, email, password) => {
+  const signup = (name, email, password, phone, pan) => {
     // basic checks
-    if (!name || !email || !password) return { success: false, message: "All fields required" };
+    if (!name || !email || !password || !phone) return { success: false, message: "All fields required" };
 
     const users = getUsersFromStorage();
     if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
       return { success: false, message: "Email already registered" };
     }
 
-    const newUser = { name, email, password };
+    const newUser = { name, email, password, phone, pan: pan || "" };
     users.push(newUser);
     localStorage.setItem("microloan_users", JSON.stringify(users));
 
-    const logged = { email, name, role: "user" };
+    const logged = { email, name, phone, pan: pan || "", role: "user" };
     setUser(logged);
     persistUser(logged);
     return { success: true };

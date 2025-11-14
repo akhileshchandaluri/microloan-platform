@@ -36,7 +36,8 @@ export default function Dashboard(){
   const pieData = { labels:["Approved","Pending"], datasets:[{ data:[approved,pending], backgroundColor:["#22C55E","#FACC15"] }]};
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto min-h-screen bg-red-600 text-white" style={{ backgroundColor: "red" }}>
+
       <h2 className="text-3xl font-bold mb-4">Admin Dashboard</h2>
       <div className="grid md:grid-cols-3 gap-4 mb-6">
         <div className="p-4 rounded bg-white dark:bg-gray-800 shadow">Total Loans<br/><div className="text-2xl font-bold">₹{total}</div></div>
