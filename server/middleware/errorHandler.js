@@ -1,5 +1,14 @@
-// simple centralized error handler
-module.exports = (err, req, res, next) => {
-  console.error(err);
-  res.status(err.status || 500).json({ message: err.message || 'Server error' });
+const errorHandler = (err, req, res, next) => {
+  console.error('Error:', err);
+
+  const statusCode = err.status || err.statusCode || 500;
+  const message = err.message || 'Server error';
+
+  res.status(statusCode).json({
+    success: false,
+    message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 };
+
+module.exports = errorHandler;

@@ -1,25 +1,70 @@
 const express = require('express');
-const router = express.Router();
-
+const { authenticate } = require('../middleware/authMiddleware');
 const {
-  createLoan,
+  applyLoan,
   getMyLoans,
   getAllLoans,
   updateLoanStatus
 } = require('../controllers/loanController');
 
-const { protect, adminOnly } = require('../middleware/authMiddleware');
+const router = express.Router();
 
-// User submit loan
-router.post('/', protect, createLoan);
+// Apply for a new loan (protected - user must be authenticated)
+router.post('/apply', authenticate, applyLoan);
 
-// User history
-router.get('/me', protect, getMyLoans);
+// Get user's own loans (protected)
+router.get('/my-loans', authenticate, getMyLoans);
 
-// Admin get all
-router.get('/', protect, adminOnly, getAllLoans);
+// Get all loans (admin only - protected)
+router.get('/all', authenticate, getAllLoans);
 
-// Admin update status
-router.patch('/:id/status', protect, adminOnly, updateLoanStatus);
+// Update loan status (admin only - protected)
+router.put('/update-status', authenticate, updateLoanStatus);
+
+// Get single loan by ID (protected)
+router.get('/:loanId', authenticate, async (req, res) => {
+  try {
+    const Loan = require('../models/Loan');
+    const loan = await Loan.findById(req.params.loanId).populate('user', 'name email phone');
+    
+    if (!loan) {
+      return res.status(404).json({ success: false, message: 'Loan not found' });
+    }
+
+    // Check if user owns this loan or is admin
+    if (loan.user._id.toString() !== req.user.id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    return res.json({ success: true, loan });
+  } catch (err) {
+    console.error('Get loan error:', err);
+    return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// Delete loan (admin only - protected)
+router.delete('/:loanId', authenticate, async (req, res) => {
+  try {
+    const Loan = require('../models/Loan');
+    
+    const loan = await Loan.findById(req.params.loanId);
+    if (!loan) {
+      return res.status(404).json({ success: false, message: 'Loan not found' });
+    }
+
+    // Check if admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Only admins can delete loans' });
+    }
+
+    await Loan.findByIdAndDelete(req.params.loanId);
+
+    return res.json({ success: true, message: 'Loan deleted successfully' });
+  } catch (err) {
+    console.error('Delete loan error:', err);
+    return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
 
 module.exports = router;

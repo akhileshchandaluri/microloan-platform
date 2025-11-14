@@ -1,273 +1,266 @@
 import { useEffect, useState } from "react";
-import { getAllLoans, updateLoanStatus } from "../services/localApi";
-import { motion } from "framer-motion";
-import { TrendingUp, Zap, AlertCircle, CheckCircle2, XCircle, Copy } from "lucide-react";
-import Footer from "../components/Footer.jsx";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import toast from "react-hot-toast";
+import { CheckCircle, XCircle, Clock, LogOut } from "lucide-react";
+import AnalyticsCharts from "../components/AnalyticsCharts.jsx";
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [loans, setLoans] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
+  const token = localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+  // Load loans
+  const loadLoans = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get("/api/loans", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.data?.success) {
+        setLoans(res.data.loans);
+      } else {
+        toast.error("Failed to load loans");
+      }
+    } catch (err) {
+      console.error("Load loans error:", err);
+      toast.error(err.response?.data?.message || "Server error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    refresh();
-  }, []);
+    if (!token) {
+      navigate("/admin/login");
+      return;
+    }
+    loadLoans();
+  }, [token]);
 
-  const refresh = () => setLoans(getAllLoans());
+  // Update loan status
+  const updateLoanStatus = async (loanId, newStatus) => {
+    try {
+      const res = await axios.put(
+        `/api/loans/${loanId}`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-  const doApprove = (id) => {
-    updateLoanStatus(id, "Approved");
-    refresh();
-    toast.success("Loan approved!");
+      if (res.data?.success) {
+        toast.success(`Loan ${newStatus.toLowerCase()} successfully!`);
+        loadLoans();
+      } else {
+        toast.error("Failed to update loan");
+      }
+    } catch (err) {
+      console.error("Update loan error:", err);
+      toast.error(err.response?.data?.message || "Server error");
+    }
   };
 
-  const doReject = (id) => {
-    updateLoanStatus(id, "Rejected");
-    refresh();
-    toast.error("Loan rejected");
+  // Logout
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("role");
+    toast.success("Logged out successfully");
+    navigate("/admin/login");
   };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    toast.success("ID copied!");
-  };
-
-  // Analytics
-  const total = loans.reduce((s, l) => s + (Number(l.amount) || 0), 0);
-  const pending = loans.filter(l => l.status === "Pending").length;
-  const approved = loans.filter(l => l.status === "Approved").length;
-  const rejected = loans.filter(l => l.status === "Rejected").length;
-  const avgAmount = loans.length > 0 ? Math.round(total / loans.length) : 0;
 
   // Filter loans
   const filteredLoans = filter === "All" 
     ? loans 
-    : loans.filter(l => l.status === filter);
+    : loans.filter(loan => loan.status === filter);
 
-  const getStatusColor = (status) => {
-    switch(status) {
-      case "Approved":
-        return "bg-accent-emerald/20 border-accent-emerald/50 text-accent-emerald";
-      case "Rejected":
-        return "bg-accent-red/20 border-accent-red/50 text-accent-red";
-      default:
-        return "bg-accent-amber/20 border-accent-amber/50 text-accent-amber";
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch(status) {
-      case "Approved":
-        return <CheckCircle2 className="w-5 h-5" />;
-      case "Rejected":
-        return <XCircle className="w-5 h-5" />;
-      default:
-        return <AlertCircle className="w-5 h-5" />;
-    }
-  };
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 }
+  // Calculate stats
+  const stats = {
+    total: loans.length,
+    pending: loans.filter(l => l.status === "Pending").length,
+    approved: loans.filter(l => l.status === "Approved").length,
+    rejected: loans.filter(l => l.status === "Rejected").length,
+    totalAmount: loans.reduce((sum, l) => sum + (Number(l.amount) || 0), 0),
+    approvalRate: loans.length > 0 ? Math.round((loans.filter(l => l.status === "Approved").length / loans.length) * 100) : 0
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl font-bold text-white mb-2">Admin Dashboard</h1>
-          <p className="text-slate-400">Manage loan applications and review requests</p>
-        </motion.div>
-
-        {/* KPI Cards */}
-        <motion.div 
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="grid md:grid-cols-5 gap-6 mb-8"
-        >
-          <motion.div variants={itemVariants} className="bg-slate-800/50 backdrop-blur border border-brand-500/20 rounded-lg p-6 hover:border-brand-500/50 transition">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm mb-1">Total Applications</p>
-                <p className="text-3xl font-bold text-white">{loans.length}</p>
-              </div>
-              <TrendingUp className="w-10 h-10 text-brand-500/50" />
-            </div>
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="bg-slate-800/50 backdrop-blur border border-accent-amber/20 rounded-lg p-6 hover:border-accent-amber/50 transition">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm mb-1">Pending</p>
-                <p className="text-3xl font-bold text-accent-amber">{pending}</p>
-              </div>
-              <AlertCircle className="w-10 h-10 text-accent-amber/50" />
-            </div>
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="bg-slate-800/50 backdrop-blur border border-accent-emerald/20 rounded-lg p-6 hover:border-accent-emerald/50 transition">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm mb-1">Approved</p>
-                <p className="text-3xl font-bold text-accent-emerald">{approved}</p>
-              </div>
-              <CheckCircle2 className="w-10 h-10 text-accent-emerald/50" />
-            </div>
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="bg-slate-800/50 backdrop-blur border border-accent-red/20 rounded-lg p-6 hover:border-accent-red/50 transition">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm mb-1">Rejected</p>
-                <p className="text-3xl font-bold text-accent-red">{rejected}</p>
-              </div>
-              <XCircle className="w-10 h-10 text-accent-red/50" />
-            </div>
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="bg-slate-800/50 backdrop-blur border border-brand-500/20 rounded-lg p-6 hover:border-brand-500/50 transition">
-            <div>
-              <p className="text-slate-400 text-sm mb-2">Total Disbursed</p>
-              <p className="text-2xl font-bold text-white mb-2">₹{(total / 100000).toFixed(1)}L</p>
-              <p className="text-xs text-slate-500">Avg: ₹{avgAmount.toLocaleString('en-IN')}</p>
-            </div>
-          </motion.div>
-        </motion.div>
-
-        {/* Main Table */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-slate-800/50 backdrop-blur border border-brand-500/20 rounded-2xl shadow-2xl overflow-hidden"
-        >
-          {/* Header with Filters */}
-          <div className="bg-gradient-brand p-6">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div>
-                <h2 className="text-2xl font-bold text-white">Loan Requests</h2>
-                <p className="text-blue-100 text-sm">Approve or reject applications</p>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {["All", "Pending", "Approved", "Rejected"].map(status => (
-                  <button
-                    key={status}
-                    onClick={() => setFilter(status)}
-                    className={`px-4 py-2 rounded-lg font-semibold transition ${
-                      filter === status
-                        ? "bg-white text-brand-700"
-                        : "bg-blue-900/50 text-white hover:bg-blue-800/50"
-                    }`}
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-            </div>
+    <div className="min-h-screen bg-slate-900">
+      {/* Header */}
+      <div className="bg-slate-800 border-b border-slate-700 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
+            <p className="text-slate-400 text-sm">Welcome, {user.name || "Admin"}</p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
+        </div>
+      </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            {filteredLoans.length === 0 ? (
-              <div className="text-center py-12 px-6">
-                <Zap className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                <p className="text-slate-400 text-lg">No {filter === "All" ? "applications" : filter.toLowerCase() + " applications"} found</p>
-              </div>
-            ) : (
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
+          <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+            <p className="text-slate-400 text-sm mb-2">Total Applications</p>
+            <p className="text-3xl font-bold text-white">{stats.total}</p>
+          </div>
+          <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+            <p className="text-slate-400 text-sm mb-2 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-yellow-500" />
+              Pending
+            </p>
+            <p className="text-3xl font-bold text-yellow-500">{stats.pending}</p>
+          </div>
+          <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+            <p className="text-slate-400 text-sm mb-2 flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-green-500" />
+              Approved
+            </p>
+            <p className="text-3xl font-bold text-green-500">{stats.approved}</p>
+          </div>
+          <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+            <p className="text-slate-400 text-sm mb-2 flex items-center gap-2">
+              <XCircle className="w-4 h-4 text-red-500" />
+              Rejected
+            </p>
+            <p className="text-3xl font-bold text-red-500">{stats.rejected}</p>
+          </div>
+          <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+            <p className="text-slate-400 text-sm mb-2">Total Amount</p>
+            <p className="text-3xl font-bold text-blue-400">
+              ₹{(stats.totalAmount / 100000).toFixed(1)}L
+            </p>
+          </div>
+          <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+            <p className="text-slate-400 text-sm mb-2">Approval Rate</p>
+            <p className="text-3xl font-bold text-purple-400">{stats.approvalRate}%</p>
+          </div>
+        </div>
+
+        {/* Analytics Charts Section */}
+        {loans.length > 0 && <AnalyticsCharts loans={loans} />}
+
+        {/* Filter Tabs */}
+        <div className="flex gap-2 mb-6 flex-wrap">
+          {["All", "Pending", "Approved", "Rejected"].map(status => (
+            <button
+              key={status}
+              onClick={() => setFilter(status)}
+              className={`px-4 py-2 rounded-lg font-semibold transition ${
+                filter === status
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+              }`}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+
+        {/* Loans Table */}
+        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+          {loading ? (
+            <div className="p-8 text-center text-slate-400">Loading loans...</div>
+          ) : filteredLoans.length === 0 ? (
+            <div className="p-8 text-center text-slate-400">
+              No {filter.toLowerCase()} loans found
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
               <table className="w-full">
-                <thead>
-                  <tr className="text-left text-slate-400 border-b border-slate-700 bg-slate-700/50">
-                    <th className="py-4 px-6 font-semibold">Applicant</th>
-                    <th className="py-4 px-6 font-semibold">Amount</th>
-                    <th className="py-4 px-6 font-semibold">Duration</th>
-                    <th className="py-4 px-6 font-semibold">EMI</th>
-                    <th className="py-4 px-6 font-semibold">Purpose</th>
-                    <th className="py-4 px-6 font-semibold">Status</th>
-                    <th className="py-4 px-6 font-semibold">Applied</th>
-                    <th className="py-4 px-6 font-semibold">Actions</th>
+                <thead className="bg-slate-700 border-b border-slate-600">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Applicant</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Contact</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Amount</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Duration</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">EMI</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Purpose</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Status</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Applied</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLoans.map((l, idx) => (
-                    <motion.tr 
-                      key={l.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="border-b border-slate-700 hover:bg-slate-700/30 transition"
-                    >
-                      <td className="py-4 px-6">
-                        <div>
-                          <p className="text-white font-semibold">{l.name}</p>
-                          <p className="text-slate-400 text-sm">{l.email}</p>
-                        </div>
+                  {filteredLoans.map((loan) => (
+                    <tr key={loan._id} className="border-b border-slate-700 hover:bg-slate-700/50 transition">
+                      <td className="px-6 py-4">
+                        <p className="text-white font-semibold">{loan.name}</p>
+                        <p className="text-slate-400 text-sm">{loan.email}</p>
                       </td>
-                      <td className="py-4 px-6">
-                        <span className="text-white font-semibold">₹{Number(l.amount).toLocaleString('en-IN')}</span>
+                      <td className="px-6 py-4 text-slate-300">
+                        <p className="text-sm">{loan.phone}</p>
                       </td>
-                      <td className="py-4 px-6 text-slate-300">{l.duration} mo</td>
-                      <td className="py-4 px-6 text-slate-300">₹{(l.emi || 0).toLocaleString('en-IN')}</td>
-                      <td className="py-4 px-6 text-slate-300 text-sm">{l.purpose || "—"}</td>
-                      <td className="py-4 px-6">
-                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm font-medium ${getStatusColor(l.status)}`}>
-                          {getStatusIcon(l.status)}
-                          {l.status}
+                      <td className="px-6 py-4 text-white font-semibold">
+                        ₹{Number(loan.amount).toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-6 py-4 text-slate-300">
+                        {loan.duration} months
+                      </td>
+                      <td className="px-6 py-4 text-slate-300">
+                        ₹{(Number(loan.emi) || 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-6 py-4 text-slate-300">
+                        {loan.purpose}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2 w-fit ${
+                            loan.status === "Approved"
+                              ? "bg-green-500/20 text-green-400"
+                              : loan.status === "Rejected"
+                              ? "bg-red-500/20 text-red-400"
+                              : "bg-yellow-500/20 text-yellow-400"
+                          }`}
+                        >
+                          {loan.status === "Approved" && <CheckCircle className="w-4 h-4" />}
+                          {loan.status === "Rejected" && <XCircle className="w-4 h-4" />}
+                          {loan.status === "Pending" && <Clock className="w-4 h-4" />}
+                          {loan.status}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-slate-400 text-sm">
-                        {new Date(l.createdAt).toLocaleDateString('en-IN')}
+                      <td className="px-6 py-4 text-slate-400 text-sm">
+                        {new Date(loan.createdAt).toLocaleDateString("en-IN")}
                       </td>
-                      <td className="py-4 px-6">
-                        <div className="flex gap-2 flex-wrap">
-                          {l.status === "Pending" && (
-                            <>
-                              <button 
-                                onClick={() => doApprove(l.id)}
-                                className="px-3 py-1 bg-accent-emerald hover:bg-accent-emerald/80 text-white rounded font-semibold text-sm transition"
-                              >
-                                Approve
-                              </button>
-                              <button 
-                                onClick={() => doReject(l.id)}
-                                className="px-3 py-1 bg-accent-red hover:bg-accent-red/80 text-white rounded font-semibold text-sm transition"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                          <button 
-                            onClick={() => copyToClipboard(l.id)}
-                            className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-sm transition flex items-center gap-1"
-                            title="Copy ID"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
-                        </div>
+                      <td className="px-6 py-4">
+                        {loan.status === "Pending" ? (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => updateLoanStatus(loan._id, "Approved")}
+                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-semibold transition"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => updateLoanStatus(loan._id, "Rejected")}
+                              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-semibold transition"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-500 text-sm">—</span>
+                        )}
                       </td>
-                    </motion.tr>
+                    </tr>
                   ))}
                 </tbody>
               </table>
-            )}
-          </div>
-        </motion.div>
+            </div>
+          )}
+        </div>
       </div>
-
-      <Footer />
     </div>
   );
 }

@@ -1,59 +1,144 @@
 const Loan = require('../models/Loan');
 
-// Create Loan (User)
-exports.createLoan = async (req, res) => {
+// Interest mapping per purpose (annual %)
+const interestRates = {
+  Business: 12,
+  Education: 10,
+  Personal: 16,
+  Other: 14
+};
+
+function getInterestForPurpose(purpose) {
+  if (!purpose) return interestRates.Other;
+  const key = Object.keys(interestRates).find(k => k.toLowerCase() === String(purpose).toLowerCase());
+  return key ? interestRates[key] : interestRates.Other;
+}
+
+function calculateEMI(principal, annualRatePercent, months) {
+  const P = Number(principal);
+  const r = (Number(annualRatePercent) / 100) / 12;
+  const n = Number(months);
+  
+  if (P <= 0 || n <= 0 || r <= 0) return 0;
+  
+  const numerator = P * r * Math.pow(1 + r, n);
+  const denominator = Math.pow(1 + r, n) - 1;
+  return Math.round(numerator / denominator);
+}
+
+exports.applyLoan = async (req, res) => {
   try {
+    const userId = req.user.id;
     const { amount, duration, purpose } = req.body;
 
+    console.log('Apply Loan Request:', { userId, amount, duration, purpose });
+
+    // Validate required fields
     if (!amount || !duration || !purpose) {
-      return res.status(400).json({ message: "All fields required" });
+      return res.status(400).json({
+        success: false,
+        message: "Amount, duration, and purpose are required"
+      });
     }
 
-    const loan = await Loan.create({
-      amount,
-      duration,
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated"
+      });
+    }
+
+    // Determine interest rate based on purpose
+    const finalInterestRate = getInterestForPurpose(purpose);
+
+    // Calculate EMI
+    const emi = calculateEMI(amount, finalInterestRate, duration);
+
+    // Create loan
+    const loan = new Loan({
+      user: userId,
+      amount: Number(amount),
+      duration: Number(duration),
       purpose,
-      userId: req.user.id, // pulled from JWT
-      status: "Pending"
+      interestRate: Number(finalInterestRate),
+      emi,
+      status: 'Pending'
     });
 
-    res.status(201).json({ message: "Loan request submitted", loan });
+    const savedLoan = await loan.save();
+
+    console.log('Loan created:', savedLoan);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Loan application submitted',
+      loan: {
+        _id: savedLoan._id,
+        amount: savedLoan.amount,
+        duration: savedLoan.duration,
+        purpose: savedLoan.purpose,
+        interestRate: savedLoan.interestRate,
+        emi: savedLoan.emi,
+        status: savedLoan.status,
+        createdAt: savedLoan.createdAt
+      }
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error('Apply loan error:', err);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error: ' + err.message 
+    });
   }
 };
 
-// User's Loan History
 exports.getMyLoans = async (req, res) => {
   try {
-    const loans = await Loan.find({ userId: req.user.id }).sort({ createdAt: -1 });
-    res.json(loans);
+    const loans = await Loan.find({ user: req.user.id }).sort({ createdAt: -1 });
+    return res.json({ success: true, loans });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error('Get loans error:', err);
+    return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
   }
 };
 
-// Admin — Get ALL Loans
 exports.getAllLoans = async (req, res) => {
   try {
-    const loans = await Loan.find().sort({ createdAt: -1 });
-    res.json(loans);
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Only admins can view all loans' });
+    }
+
+    const loans = await Loan.find().populate('user', 'name email phone').sort({ createdAt: -1 });
+    return res.json({ success: true, loans });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error('Get all loans error:', err);
+    return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
   }
 };
 
-// Admin — Update Loan Status
 exports.updateLoanStatus = async (req, res) => {
   try {
-    const { status } = req.body;
-    const loan = await Loan.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
-    res.json(loan);
+    const { loanId, status } = req.body;
+
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Only admins can update loan status' });
+    }
+
+    if (!['Approved', 'Rejected', 'Pending'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    const loan = await Loan.findByIdAndUpdate(loanId, { status }, { new: true });
+
+    if (!loan) {
+      return res.status(404).json({ success: false, message: 'Loan not found' });
+    }
+
+    return res.json({ success: true, message: 'Loan status updated', loan });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error('Update loan error:', err);
+    return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
   }
 };

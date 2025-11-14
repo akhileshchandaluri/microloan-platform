@@ -1,33 +1,37 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const jwt = require("jsonwebtoken");
 
-const getTokenFromHeader = (req) => {
-  const auth = req.headers.authorization || '';
-  if (auth.startsWith('Bearer ')) return auth.split(' ')[1];
-  // fallback to cookie token if you store token in cookies
-  if (req.cookies && req.cookies.token) return req.cookies.token;
-  return null;
-};
-
-const protect = async (req, res, next) => {
+exports.authenticate = (req, res, next) => {
   try {
-    const token = getTokenFromHeader(req);
-    if (!token) return res.status(401).json({ message: 'Not authorized, token missing' });
+    const token =
+      req.headers.authorization?.split(" ")[1] || req.cookies.token;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "No authentication token provided",
+      });
+    }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // optionally fetch fresh user
-    req.user = { id: decoded.id, role: decoded.role, email: decoded.email };
-    return next();
+    req.user = decoded;
+
+    next();
   } catch (err) {
-    console.error('Auth error:', err.message || err);
-    return res.status(401).json({ message: 'Not authorized, token invalid' });
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
   }
 };
 
-const adminOnly = (req, res, next) => {
-  if (!req.user) return res.status(401).json({ message: 'Not authorized' });
-  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
-  next();
+exports.authorize = (roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "You don't have permission to access this resource",
+      });
+    }
+    next();
+  };
 };
-
-module.exports = { protect, adminOnly };
