@@ -1,90 +1,82 @@
-🏦 Microloan Platform
+# 🏦 Microloan Platform
 
-🚀 Project Overview
+A full-stack MERN application for managing microloans with instant EMI calculation and admin workflows.
 
-The Microloan Platform is a full-stack application built using the MERN stack (MongoDB, Express, React, Node.js). It is designed to manage the full lifecycle of micro-loans, including application submission, administrative approval, and repayment tracking.
+## ✨ Features
 
-This repository contains two main parts:
+✅ User registration & JWT authentication  
+✅ Real-time EMI calculator  
+✅ Loan application tracking  
+✅ Admin approval dashboard  
+✅ Email notifications  
+✅ Responsive design  
 
-/server: The Node.js/Express backend, responsible for APIs, database connection, and core business logic.
+## 🛠️ Tech Stack
 
-/client: The React frontend, which provides the user interface, styled using Tailwind CSS.
+**Frontend:** React 18, Vite, Tailwind CSS, Chart.js  
+**Backend:** Node.js, Express, MongoDB, Mongoose  
+**Auth:** JWT, Bcrypt  
 
-⚙️ Getting Started (Initial Setup)
+## 📸 Screenshots
 
-Follow these steps to set up the project locally for development.
+### Home Page
+![Home Page](./assets/home-page.png)
 
-1. Prerequisites
+### User Dashboard
+![User Dashboard](./assets/user-dashboard.png)
 
-Before you start, make sure you have the following installed:
+### Admin Dashboard
+![Admin Dashboard](./assets/admin-dashboard-1.png)
 
-Node.js & npm (Node Package Manager)
+### Admin Dashboard Analytics
+![Admin Analytics](./assets/admin-dashboard-2.png)
 
-A MongoDB Atlas account (to host our database)
+## 🚀 Quick Start
 
-Git (for version control)
-
-2. Repository Cloning
-
-If you haven't already, clone the repository and navigate into the project directory:
-
-git clone [https://github.com/](https://github.com/)<your-username>/microloan-platform.git
-cd microloan-platform
-
-
-3. Backend Setup
-
-This step sets up the core server and links it to our database.
-
-Navigate into the server folder:
-
+### Backend Setup
+```bash
 cd server
-
-
-Install all required dependencies (Express, Mongoose, etc.):
-
 npm install
+cp .env.example .env
+# Update MONGO_URI, JWT_SECRET in .env
+npm run dev
+```
 
-
-Crucial Step: Environment Variables
-Create a file named .env inside the /server directory. This file holds secrets like the MongoDB connection string. Add the following line, replacing your_connection_string_from_mongodb_atlas with the actual URI you get from MongoDB Atlas:
-
-MONGO_URI=your_connection_string_from_mongodb_atlas
-
-
-4. Frontend Setup
-
-This sets up the user interface.
-
-Return to the project root and navigate into the client folder:
-
-cd ..
+### Frontend Setup
+```bash
 cd client
-
-
-Install all required dependencies (React, Tailwind, etc.):
-
 npm install
+npm run dev
+```
 
+Open `http://localhost:5173`
 
-▶️ Running the Application
+## 🔐 Default Admin Credentials
+```
+Email: admin@microloan.com
+Password: admin123456
+```
 
-To run the full application, you need two separate terminal windows open: one for the server and one for the client.
+## 📁 Project Structure
+```
+microloan-platform/
+├── client/               # React frontend
+├── server/               # Express backend
+├── assets/              # Screenshots folder
+└── README.md
+```
 
-Step A: Start the Backend (Server)
+## 🔌 Key API Endpoints
+```
+POST   /api/auth/signup       - Register user
+POST   /api/auth/login        - User login
+POST   /api/loans/apply       - Apply for loan
+GET    /api/admin/loans       - Get all loans (admin)
+PUT    /api/admin/loans/:id   - Approve/reject loan
+```
 
-From the /server directory:
+## 📝 License
+MIT
 
-node server.js
-
-
-The console should confirm the database connection and server port: MongoDB connected and Server on 5000.
-
-Step B: Start the Frontend (Client)
-
-From the /client directory:
-
-npm start
-
-
-This will automatically open the application in your web browser (typically at http://localhost:3000).
+---
+**Made with ❤️ by Akhilesh Chandaluri**
