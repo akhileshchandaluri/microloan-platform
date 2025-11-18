@@ -8,11 +8,15 @@ const loanSchema = new mongoose.Schema({
   },
   amount: {
     type: Number,
-    required: true
+    required: true,
+    min: [5000, 'Minimum loan amount is ₹5,000'],
+    max: [500000, 'Maximum loan amount is ₹5,00,000']
   },
   duration: {
     type: Number,
-    required: true
+    required: true,
+    min: [1, 'Minimum duration is 1 month'],
+    max: [120, 'Maximum duration is 120 months']
   },
   purpose: {
     type: String,
@@ -32,6 +36,8 @@ const loanSchema = new mongoose.Schema({
     enum: ['Pending', 'Approved', 'Rejected'],
     default: 'Pending'
   },
+  rejectionReason: String,
+  approvalDate: Date,
   createdAt: {
     type: Date,
     default: Date.now

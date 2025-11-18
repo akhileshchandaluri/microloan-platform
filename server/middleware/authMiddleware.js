@@ -6,31 +6,22 @@ exports.authenticate = (req, res, next) => {
       req.headers.authorization?.split(" ")[1] || req.cookies.token;
 
     if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "No authentication token provided",
-      });
+      return res.status(401).json({ success: false, message: "No token provided" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "default_secret_key");
     req.user = decoded;
-
     next();
   } catch (err) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid or expired token",
-    });
+    console.error("Auth error:", err);
+    return res.status(401).json({ success: false, message: "Invalid token" });
   }
 };
 
 exports.authorize = (roles) => {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: "You don't have permission to access this resource",
-      });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
     }
     next();
   };

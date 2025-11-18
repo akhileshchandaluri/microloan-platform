@@ -94,11 +94,26 @@ exports.applyLoan = async (req, res) => {
 
 exports.getMyLoans = async (req, res) => {
   try {
-    const loans = await Loan.find({ user: req.user.id }).sort({ createdAt: -1 });
+    const { status, sortBy } = req.query;
+    let query = { user: req.user.id };
+
+    // Filter by status
+    if (status && ['Pending', 'Approved', 'Rejected'].includes(status)) {
+      query.status = status;
+    }
+
+    // Sort options
+    let sort = { createdAt: -1 };
+    if (sortBy === 'amount-high') sort = { amount: -1 };
+    if (sortBy === 'amount-low') sort = { amount: 1 };
+    if (sortBy === 'newest') sort = { createdAt: -1 };
+    if (sortBy === 'oldest') sort = { createdAt: 1 };
+
+    const loans = await Loan.find(query).sort(sort);
     return res.json({ success: true, loans });
   } catch (err) {
     console.error('Get loans error:', err);
-    return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -109,11 +124,31 @@ exports.getAllLoans = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Only admins can view all loans' });
     }
 
-    const loans = await Loan.find().populate('user', 'name email phone').sort({ createdAt: -1 });
+    const { status, purpose, search, sortBy } = req.query;
+    let query = {};
+
+    if (status) query.status = status;
+    if (purpose) query.purpose = purpose;
+    
+    if (search) {
+      query.$or = [
+        { 'user.name': new RegExp(search, 'i') },
+        { 'user.email': new RegExp(search, 'i') }
+      ];
+    }
+
+    let sort = { createdAt: -1 };
+    if (sortBy === 'amount-high') sort = { amount: -1 };
+    if (sortBy === 'amount-low') sort = { amount: 1 };
+
+    const loans = await Loan.find(query)
+      .populate('user', 'name email phone')
+      .sort(sort);
+
     return res.json({ success: true, loans });
   } catch (err) {
     console.error('Get all loans error:', err);
-    return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 

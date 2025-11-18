@@ -1,3 +1,48 @@
+import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:5000/api';
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Add token to requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Auth APIs
+export const authAPI = {
+  signup: (data) => api.post('/auth/signup', data),
+  login: (data) => api.post('/auth/login', data),
+  getProfile: () => api.get('/auth/profile')
+};
+
+// Loan APIs
+export const loanAPI = {
+  apply: (data) => api.post('/loans/apply', data),
+  getMyLoans: () => api.get('/loans/my-loans'),
+  getLoan: (id) => api.get(`/loans/${id}`)
+};
+
+// Admin APIs
+export const adminAPI = {
+  getStats: () => api.get('/admin/stats'),
+  getAllLoans: () => api.get('/admin/loans'),
+  updateLoanStatus: (loanId, status) =>
+    api.put(`/admin/loans/${loanId}/status`, { status }),
+  getUsers: () => api.get('/admin/users')
+};
+
+export default api;
+
 // localApi.js - mock DB (localStorage)
 
 const LS_USERS_KEY = "microloan_users";

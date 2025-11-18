@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { CheckCircle, XCircle, Clock, LogOut, Plus } from "lucide-react";
+import { CheckCircle, XCircle, Clock, LogOut, Plus, Filter, Search } from "lucide-react";
 import EMICalculator from "../components/EMICalculator.jsx";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("All");
+  const [sortBy, setSortBy] = useState("newest");
+  const [searchTerm, setSearchTerm] = useState("");
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
@@ -16,7 +19,10 @@ export default function DashboardPage() {
   const loadLoans = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("/api/loans/my-loans", {
+      let query = "?sortBy=" + sortBy;
+      if (filter !== "All") query += "&status=" + filter;
+
+      const res = await axios.get(`/api/loans/my-loans${query}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -43,7 +49,7 @@ export default function DashboardPage() {
       return;
     }
     loadLoans();
-  }, [token]);
+  }, [token, filter, sortBy]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -52,6 +58,18 @@ export default function DashboardPage() {
     toast.success("Logged out successfully");
     navigate("/");
   };
+
+  const handleSearch = async (e) => {
+    setSearchTerm(e.target.value);
+    // Implement search if needed
+  };
+
+  const formatCurrency = (val) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0
+    }).format(val);
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -174,6 +192,54 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Search & Filter */}
+        <div className="bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700">
+          <div className="grid md:grid-cols-3 gap-4">
+            {/* Search */}
+            <div className="md:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search loans..."
+                  value={searchTerm}
+                  onChange={handleSearch}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-900/30 border border-slate-600 rounded text-white placeholder-slate-400"
+                />
+              </div>
+            </div>
+
+            {/* Sort */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-slate-900/30 border border-slate-600 rounded px-4 py-2 text-white"
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="amount-high">Amount: High to Low</option>
+              <option value="amount-low">Amount: Low to High</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Filter Buttons */}
+        <div className="flex gap-2 mb-6">
+          {["All", "Pending", "Approved", "Rejected"].map((status) => (
+            <button
+              key={status}
+              onClick={() => setFilter(status)}
+              className={`px-4 py-2 rounded transition ${
+                filter === status
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+              }`}
+            >
+              {status}
+            </button>
+          ))}
         </div>
 
         {/* Quick Tips */}

@@ -11,8 +11,8 @@ const router = express.Router();
 
 // Admin-only middleware
 const isAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ success: false, message: "Admin access required" });
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
   }
   next();
 };

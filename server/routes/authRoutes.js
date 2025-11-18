@@ -148,4 +148,22 @@ router.get('/profile', authenticate, async (req, res) => {
   }
 });
 
+// PUT /api/auth/profile
+router.put('/profile', authenticate, async (req, res) => {
+  try {
+    const { name, phone, pan } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { name, phone, pan },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    return res.json({ success: true, message: 'Profile updated', user });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;

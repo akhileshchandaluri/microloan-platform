@@ -6,11 +6,12 @@ const {
   getAllLoans,
   updateLoanStatus
 } = require('../controllers/loanController');
+const { loanApplicationLimiter } = require('../middleware/userRateLimit');
 
 const router = express.Router();
 
 // Apply for a new loan (protected - user must be authenticated)
-router.post('/apply', authenticate, applyLoan);
+router.post('/apply', authenticate, loanApplicationLimiter, applyLoan);
 
 // Get user's own loans (protected)
 router.get('/my-loans', authenticate, getMyLoans);
